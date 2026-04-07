@@ -15,6 +15,9 @@ const allowedOrigins = [
   'http://localhost:5173',
   'http://127.0.0.1:5173',
   'https://gritek-solutions.vercel.app',
+  'https://gritek-frontend.vercel.app',
+  'https://gritek-frontend-gritek.vercel.app',
+  'https://gritek-frontend-git-main-gritek.vercel.app',
   'https://gritek-solutions.onrender.com'
 ];
 
