@@ -31,8 +31,22 @@ router.post('/auth/login', authController.login);
 router.get('/auth/verify', authController.verify);
 router.post('/auth/setup-admin', authController.setupAdmin);
 
-// Basic health check responder
-router.get('/health', apiController.getHealthStatus);
+// Improved Health status
+router.get('/health', (req, res) => {
+  res.json({ 
+    status: 'success', 
+    message: 'API is running normally',
+    database: {
+      connected: mongoose.connection.readyState === 1,
+      state: mongoose.connection.readyState
+    },
+    env: {
+      mongoUriSet: !!process.env.MONGO_URI,
+      jwtSecretSet: !!process.env.JWT_SECRET
+    },
+    timestamp: new Date().toISOString()
+  });
+});
 
 // Contact routes
 router.post('/contact', apiController.submitContactForm);

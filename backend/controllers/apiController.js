@@ -14,17 +14,18 @@ const bcrypt = require('bcryptjs');
 exports.getHealthStatus = (req, res) => {
   const mongoose = require('mongoose');
   const dbState = mongoose.connection.readyState;
-  // 0: disconnected, 1: connected, 2: connecting, 3: disconnecting
   res.status(200).json({
     status: 'success',
     message: 'API is running normally',
     database: {
       connected: dbState === 1,
-      state: dbState
+      state: dbState,
+      stateLabel: ['disconnected', 'connected', 'connecting', 'disconnecting'][dbState] || 'unknown'
     },
     env: {
       mongoUriSet: !!process.env.MONGO_URI,
-      jwtSecretSet: !!process.env.JWT_SECRET
+      jwtSecretSet: !!process.env.JWT_SECRET,
+      emailPasswordSet: !!process.env.EMAIL_PASSWORD
     },
     timestamp: new Date().toISOString()
   });
@@ -218,51 +219,71 @@ exports.markContactAsRead = async (req, res) => {
 
 // Handle contact form submissions
 exports.submitContactForm = async (req, res) => {
-  try {
-    const { name, email, phone, services, message } = req.body;
+  const { name, email, phone, services, message } = req.body;
+  let dbSaved = false;
+  let emailSent = false;
 
+  // 1. Attempt Database Save
+  try {
     const newContact = new Contact({ name, email, phone, services, message });
     await newContact.save();
+    dbSaved = true;
+  } catch (err) {
+    console.error('CRITICAL: Database save failed for contact form:', err.message);
+    // Proceeding so email can still be sent
+  }
 
-    // Send email via Nodemailer
-    const transporter = nodemailer.createTransport({
-      service: 'gmail', // You can change this based on the SMTP server
-      auth: {
-        user: 'griteksolutions@gmail.com',
-        pass: process.env.EMAIL_PASSWORD || 'your_app_password', // Should be placed in .env
-      },
-    });
+  // 2. Attempt Email Notification via Nodemailer
+  const EMAIL_USER = 'griteksolutions@gmail.com';
+  const EMAIL_PASS = process.env.EMAIL_PASSWORD;
 
-    const mailOptions = {
-      from: 'griteksolutions@gmail.com',
-      to: 'griteksolutions@gmail.com',
-      subject: `New Contact Form Submission from ${name}`,
-      text: `
-        Name: ${name}
-        Email: ${email}
-        Phone: ${phone || 'N/A'}
-        Interested Services: ${services ? services.join(', ') : 'None'}
-        Message: ${message}
-      `,
-    };
+  if (EMAIL_PASS) {
+    try {
+      const transporter = nodemailer.createTransport({
+        service: 'gmail',
+        auth: {
+          user: EMAIL_USER,
+          pass: EMAIL_PASS,
+        },
+      });
 
-    // Attempt to send email, but don't fail the request if auth is not set yet
-    if (process.env.EMAIL_PASSWORD) {
-       transporter.sendMail(mailOptions, (error, info) => {
-         if (error) console.error('Error sending email:', error);
-         else console.log('Email sent:', info.response);
-       });
-    } else {
-       console.log('Skipping email send. No EMAIL_PASSWORD set in .env.');
+      const mailOptions = {
+        from: EMAIL_USER,
+        to: EMAIL_USER,
+        subject: `New Contact Form Submission from ${name}`,
+        text: `
+          Name: ${name}
+          Email: ${email}
+          Phone: ${phone || 'N/A'}
+          Interested Services: ${services ? (Array.isArray(services) ? services.join(', ') : services) : 'None'}
+          Message: ${message}
+          ---
+          Note: This notification was sent directly. Database saved: ${dbSaved}
+        `,
+      };
+
+      await transporter.sendMail(mailOptions);
+      emailSent = true;
+      console.log('Notification email sent successfully for:', name);
+    } catch (mailError) {
+      console.error('Error sending notification email:', mailError.message);
     }
+  } else {
+    console.warn('Skipping email send. No EMAIL_PASSWORD set in environment variables.');
+  }
 
+  // 3. Send Response
+  if (dbSaved || emailSent) {
     res.status(200).json({
       status: 'success',
-      message: 'Thank you for your message. We will be in touch shortly.'
+      message: 'Thank you for your message. We will be in touch shortly.',
+      details: { dbSaved, emailSent }
     });
-  } catch (err) {
-    console.error(err);
-    res.status(500).json({ error: 'Failed to submit contact form' });
+  } else {
+    res.status(500).json({
+      error: 'Form submission failed completely. Please try again later.',
+      details: { dbSaved, emailSent }
+    });
   }
 };
 

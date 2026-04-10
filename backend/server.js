@@ -18,7 +18,9 @@ const allowedOrigins = [
   'https://gritek-frontend.vercel.app',
   'https://gritek-frontend-gritek.vercel.app',
   'https://gritek-frontend-git-main-gritek.vercel.app',
-  'https://gritek-solutions.onrender.com'
+  'https://gritek-solutions.onrender.com',
+  'https://www.griteksolutions.com',
+  'https://griteksolutions.com'
 ];
 
 app.use(cors({
@@ -42,14 +44,19 @@ app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 
 // Database Connection
 if (!MONGO_URI) {
-  console.error('CRITICAL: MONGO_URI is not defined in environment variables');
+  console.error('\x1b[31mCRITICAL: MONGO_URI is not defined in environment variables\x1b[0m');
 }
 
-mongoose.connect(MONGO_URI)
-  .then(() => console.log('Successfully connected to MongoDB'))
+mongoose.connect(MONGO_URI, {
+  serverSelectionTimeoutMS: 5000,
+  socketTimeoutMS: 45000,
+})
+  .then(() => console.log('\x1b[32mSuccessfully connected to MongoDB Atlas\x1b[0m'))
   .catch((err) => {
-    console.error('CRITICAL: MongoDB connection error:', err.message);
-    console.error('Full connection error details:', err);
+    console.error('\x1b[31mCRITICAL: MongoDB connection error:\x1b[0m', err.message);
+    if (err.message.includes('MongooseServerSelectionError')) {
+      console.warn('\x1b[33mTip: Check if your IP is whitelisted in Atlas (0.0.0.0/0 recommended for Render).\x1b[0m');
+    }
   });
 
 // Global Error Handler
