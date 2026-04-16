@@ -9,6 +9,51 @@ const nodemailer = require('nodemailer');
 const bcrypt = require('bcryptjs');
 const mongoose = require('mongoose');
 
+// Shared Transporter for Emails
+const EMAIL_USER = 'griteksolutions@gmail.com';
+const EMAIL_PASS = process.env.EMAIL_PASSWORD;
+
+let transporter = null;
+if (EMAIL_PASS) {
+  transporter = nodemailer.createTransport({
+    service: 'gmail',
+    auth: {
+      user: EMAIL_USER,
+      pass: EMAIL_PASS,
+    },
+  });
+  console.log('Email transporter initialized for:', EMAIL_USER);
+} else {
+  console.warn('Email transporter NOT initialized. EMAIL_PASSWORD missing in environment.');
+}
+
+/**
+ * Helper to send contact form notifications in the background
+ */
+const sendContactNotification = (data, dbSaved) => {
+  if (!transporter) return;
+
+  const { name, email, phone, services, message } = data;
+  const mailOptions = {
+    from: EMAIL_USER,
+    to: EMAIL_USER,
+    subject: `New Contact Form Submission from ${name}`,
+    text: `
+      Name: ${name}
+      Email: ${email}
+      Phone: ${phone || 'N/A'}
+      Interested Services: ${services ? (Array.isArray(services) ? services.join(', ') : services) : 'None'}
+      Message: ${message}
+      ---
+      Note: This notification was sent directly. Database saved: ${dbSaved}
+    `,
+  };
+
+  transporter.sendMail(mailOptions)
+    .then(info => console.log('Notification email sent successfully for:', name, info.messageId))
+    .catch(err => console.error('Error sending notification email:', err.message));
+};
+
 // API Controller Methods
 
 // Basic health check responder
@@ -220,69 +265,41 @@ exports.markContactAsRead = async (req, res) => {
 // Handle contact form submissions
 exports.submitContactForm = async (req, res) => {
   const { name, email, phone, services, message } = req.body;
-  let dbSaved = false;
-  let emailSent = false;
+  
+  if (!name || !email || !message) {
+    return res.status(400).json({ error: 'Name, email, and message are required.' });
+  }
 
-  // 1. Attempt Database Save
   try {
+    // 1. Attempt Database Save (Priority)
     const newContact = new Contact({ name, email, phone, services, message });
     await newContact.save();
-    dbSaved = true;
-  } catch (err) {
-    console.error('CRITICAL: Database save failed for contact form:', err.message);
-    // Proceeding so email can still be sent
-  }
 
-  // 2. Attempt Email Notification via Nodemailer
-  const EMAIL_USER = 'griteksolutions@gmail.com';
-  const EMAIL_PASS = process.env.EMAIL_PASSWORD;
+    // 2. Trigger Email Notification (Background - Don't await)
+    // This allows the response to be sent immediately
+    sendContactNotification({ name, email, phone, services, message }, true);
 
-  if (EMAIL_PASS) {
-    try {
-      const transporter = nodemailer.createTransport({
-        service: 'gmail',
-        auth: {
-          user: EMAIL_USER,
-          pass: EMAIL_PASS,
-        },
-      });
-
-      const mailOptions = {
-        from: EMAIL_USER,
-        to: EMAIL_USER,
-        subject: `New Contact Form Submission from ${name}`,
-        text: `
-          Name: ${name}
-          Email: ${email}
-          Phone: ${phone || 'N/A'}
-          Interested Services: ${services ? (Array.isArray(services) ? services.join(', ') : services) : 'None'}
-          Message: ${message}
-          ---
-          Note: This notification was sent directly. Database saved: ${dbSaved}
-        `,
-      };
-
-      await transporter.sendMail(mailOptions);
-      emailSent = true;
-      console.log('Notification email sent successfully for:', name);
-    } catch (mailError) {
-      console.error('Error sending notification email:', mailError.message);
-    }
-  } else {
-    console.warn('Skipping email send. No EMAIL_PASSWORD set in environment variables.');
-  }
-
-  // 3. Send Response
-  if (dbSaved || emailSent) {
-    res.status(200).json({
+    // 3. Send Immediate Success Response
+    return res.status(200).json({
       status: 'success',
       message: 'Thank you for your message. We will be in touch shortly.',
-      details: { dbSaved, emailSent }
     });
-  } else {
+
+  } catch (err) {
+    console.error('CRITICAL: Database save failed for contact form:', err.message);
+    
+    // If DB fails, still try to send email so the message isn't lost
+    if (transporter) {
+      sendContactNotification({ name, email, phone, services, message }, false);
+      return res.status(200).json({
+        status: 'success',
+        message: 'Thank you for your message. We have received it via email and will be in touch shortly.',
+        note: 'fallback_to_email_only'
+      });
+    }
+
     res.status(500).json({
-      error: 'Form submission failed completely. Please try again later.',
-      details: { dbSaved, emailSent }
+      error: 'Form submission failed. Please try again later or contact us directly.',
     });
   }
 };

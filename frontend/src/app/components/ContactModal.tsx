@@ -2,7 +2,6 @@ import { motion, AnimatePresence } from 'motion/react';
 import { X, Send } from 'lucide-react';
 import { useState } from 'react';
 import { SuccessModal } from './SuccessModal';
-import emailjs from '@emailjs/browser';
 import { API_BASE_URL } from '../config/api';
 
 interface ContactModalProps {
@@ -48,55 +47,28 @@ export function ContactModal({ isOpen, onClose }: ContactModalProps) {
       setErrors(prev => ({ ...prev, phone: 'Phone number must be 10 digits' }));
       return;
     }
+    setIsSubmitting(true);
     try {
-      // 1. Attempt to Save to Database (Backend)
-      let backendSuccess = false;
-      try {
-        const response = await fetch(`${API_BASE_URL}/contact`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            name: formData.fullName,
-            email: formData.email,
-            phone: formData.phone,
-            services: formData.service ? [formData.service] : [],
-            message: formData.message,
-          }),
-        });
-        backendSuccess = response.ok;
-      } catch (backendError) {
-        console.warn('Backend submission failed, falling back to EmailJS:', backendError);
-      }
+      // Hit Backend solely (Optimized to be fast)
+      const response = await fetch(`${API_BASE_URL}/contact`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          name: formData.fullName,
+          email: formData.email,
+          phone: formData.phone,
+          services: formData.service ? [formData.service] : [],
+          message: formData.message,
+        }),
+      });
 
-      // 2. Attempt EmailJS (Client-side)
-      let emailJsSuccess = false;
-      const serviceId = (import.meta as any).env.VITE_EMAILJS_SERVICE_ID;
-      const templateId = (import.meta as any).env.VITE_EMAILJS_TEMPLATE_ID;
-      const publicKey = (import.meta as any).env.VITE_EMAILJS_PUBLIC_KEY;
-
-      if (serviceId && templateId && publicKey && serviceId !== 'YOUR_SERVICE_ID') {
-        try {
-          await emailjs.send(serviceId, templateId, {
-            to_email: 'griteksolutions@gmail.com',
-            from_name: formData.fullName,
-            from_email: formData.email,
-            phone: formData.phone || 'Not Provided',
-            service: formData.service || 'Not Specified',
-            message: formData.message,
-          }, publicKey);
-          emailJsSuccess = true;
-        } catch (emailJsError) {
-          console.error('EmailJS failed:', emailJsError);
-        }
-      }
-
-      // 3. Overall success check
-      if (backendSuccess || emailJsSuccess) {
+      if (response.ok) {
         setFormData({ fullName: '', email: '', phone: '', service: '', message: '' });
         onClose();
         setShowSuccess(true);
       } else {
-        throw new Error('Both submission methods failed.');
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Submission failed');
       }
     } catch (error) {
       console.error('Error submitting form:', error);
