@@ -2,7 +2,7 @@
 
 Full-stack website for Gritek Solutions.
 
-## Project Structure
+## Project-Structure
 
 ```
 ├── frontend/    # React + Vite (deployed on Vercel)
