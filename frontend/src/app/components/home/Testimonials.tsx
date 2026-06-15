@@ -11,6 +11,23 @@ import { ReviewModal } from './ReviewModal';
 import { API_BASE_URL } from '../../config/api';
 
 const staticTestimonials = [
+    {
+    // name: 'Rajesh Kumar',
+    // company: 'Tech Innovations Pvt Ltd',
+    // photo: 'https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=200&q=80',
+    // rating: 5,
+    // review: 'Gritek Solution engineered our enterprise platform with remarkable precision. Their technical stewardship and post-deployment support have been definitive factors in our digital success.',
+    // verified: true,
+  },
+  {
+ 
+  },
+  {
+ 
+  },
+  {
+   
+  },
 ];
 
 export function Testimonials() {
