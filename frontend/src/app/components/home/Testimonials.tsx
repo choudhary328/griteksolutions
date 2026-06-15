@@ -11,38 +11,6 @@ import { ReviewModal } from './ReviewModal';
 import { API_BASE_URL } from '../../config/api';
 
 const staticTestimonials = [
-  {
-    name: 'Rajesh Kumar',
-    company: 'Tech Innovations Pvt Ltd',
-    photo: 'https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=200&q=80',
-    rating: 5,
-    review: 'Gritek Solution engineered our enterprise platform with remarkable precision. Their technical stewardship and post-deployment support have been definitive factors in our digital success.',
-    verified: true,
-  },
-  {
-    name: 'Priya Sharma',
-    company: 'Fashion Hub',
-    photo: 'https://images.unsplash.com/photo-1438761681033-6461ffad8d80?w=200&q=80',
-    rating: 5,
-    review: 'The design-first methodology at Gritek transformed our digital identity. We saw a subatantial increase in user engagement and conversion metrics immediately following the new site launch.',
-    verified: true,
-  },
-  {
-    name: 'Amit Patel',
-    company: 'Digital Marketing Agency',
-    photo: 'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=200&q=80',
-    rating: 5,
-    review: 'Our mobile ecosystem, developed by the Gritek team, is both sophisticated and robust. Their ability to translate complex business logic into intuitive mobile experiences is unparalleled.',
-    verified: true,
-  },
-  {
-    name: 'Sneha Desai',
-    company: 'Wellness Studio',
-    photo: 'https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=200&q=80',
-    rating: 5,
-    review: 'From the initial architecture to the final deployment, Gritek maintained a level of professionalism and technical rigor that is rare in the industry. They are true strategic partners.',
-    verified: true,
-  },
 ];
 
 export function Testimonials() {
